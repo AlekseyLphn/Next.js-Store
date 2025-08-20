@@ -10,6 +10,7 @@ import * as process from 'node:process';
 import {revalidatePath} from 'next/cache';
 import {toast} from 'sonner';
 import {deleteImage} from './supabase';
+import {error} from 'next/dist/build/output/log';
 
 const getAuthUser = async () => {
   const user = await currentUser();
@@ -113,9 +114,70 @@ export const deleteProductAction = async (prevState: { productId: string }) => {
     });
     await deleteImage(product.image);
 
-    revalidatePath('/admin/products');
+    revalidatePath(`/admin/products`);
     return {message: 'product removed'};
   } catch (error) {
     return renderError(error);
+  }
+};
+
+export const fetchAdminProductDetails = async (productId: string) => {
+  await getAdminUser();
+
+  const product = await db.product.findUnique({
+    where: {id: productId},
+  });
+
+  if (!product) redirect('/admin/products');
+
+  return product;
+};
+
+export const updateProductAction = async (prevState: unknown, formData: FormData) => {
+  await getAdminUser();
+
+  try {
+    const productId = formData.get('id') as string;
+    const rowData = Object.fromEntries(formData);
+    const validatedFields = validateWithZodSchema(productSchema, rowData);
+
+    await db.product.update({
+      where: {
+        id: productId,
+      },
+      data: {
+        ...validatedFields,
+      },
+    });
+    revalidatePath(`/admin/products/${productId}/edit`);
+    return {message: 'Product updated successfully'};
+  } catch (error) {
+    return renderError(error);
+  }
+};
+
+export const updateProductImageAction = async (prevState: unknown, formData: FormData) => {
+  await getAdminUser();
+
+  try {
+    const image = formData.get('image') as File;
+    const productId = formData.get('id') as string;
+    const oldImageUrl = formData.get('url') as string;
+
+    const validatedFile = validateWithZodSchema(imageSchema, {image});
+    const fullPath = await uploadImage(validatedFile.image);
+    await deleteImage(oldImageUrl);
+    await db.product.update({
+      where: {
+        id: productId,
+      },
+      data: {
+        image: fullPath,
+      },
+    });
+    revalidatePath(`/admin/products/${productId}/edit`);
+    return {message: 'Product Image updated successfully'};
+  } catch (e) {
+    return renderError(e);
   }
 };
