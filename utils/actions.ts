@@ -181,3 +181,59 @@ export const updateProductImageAction = async (prevState: unknown, formData: For
     return renderError(e);
   }
 };
+
+export const fetchFavoriteId = async ({productId}: { productId: string }) => {
+  const user = await getAuthUser();
+  const favorite = await db.favorite.findFirst({
+    where: {
+      productId,
+      clerkId: user.id,
+    },
+    select: {
+      id: true,
+    },
+  });
+  return favorite?.id || null;
+};
+
+
+export const toggleFavoriteAction = async (
+  prevState: {
+    productId: string;
+    favoriteId: string | null;
+    pathName: string;
+  }) => {
+  const user = await getAuthUser();
+  const {productId, favoriteId, pathName} = prevState;
+
+  try {
+    if (favoriteId) {
+      await db.favorite.delete({
+        where: {id: favoriteId},
+      });
+    } else {
+      await db.favorite.create({
+        data: {
+          productId,
+          clerkId: user.id,
+        },
+      });
+    }
+    revalidatePath(pathName);
+    return {message: favoriteId ? 'removed from faves' : 'added to faves'};
+  } catch (e) {
+    return renderError(e);
+  }
+};
+
+export const fetchUserFavorites = async () => {
+  const user = await getAuthUser();
+  const favorite = await db.favorite.findMany({
+    where: {clerkId: user.id},
+    include: {
+      product: true,
+    },
+  });
+
+  return favorite;
+};
