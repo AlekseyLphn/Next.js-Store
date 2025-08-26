@@ -5,7 +5,7 @@ import {
   EmbeddedCheckout,
   EmbeddedCheckoutProvider,
 } from '@stripe/react-stripe-js';
-import {useCallback} from 'react';
+import {Suspense, useCallback} from 'react';
 import axios from 'axios';
 
 const stripePromise = loadStripe(
@@ -13,6 +13,15 @@ const stripePromise = loadStripe(
 );
 
 function CheckoutPage() {
+  return (
+    <Suspense fallback={<p>loading...</p>}>
+      <Checkout />
+    </Suspense>
+  );
+
+}
+
+function Checkout() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const cartId = searchParams.get('cartId');
